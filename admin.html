@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>双创竞赛 · 后台编辑器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Microsoft Yahei",sans-serif}
+body{background:#f0f7ff;padding:20px}
+.container{max-width:960px;margin:auto;background:#fff;padding:26px;border-radius:14px;box-shadow:0 2px 10px #00000018}
+#loginWrap{max-width:480px;margin:60px auto;padding:24px;background:#fff;border-radius:12px;box-shadow:0 2px 8px #00000018;text-align:center}
+#editorWrap{display:none}
+h1{color:#226;margin-bottom:20px;font-size:24px}
+.panel{border:1px solid #dde8f5;border-radius:10px;padding:18px;margin-bottom:18px}
+.form-row{margin-bottom:12px}
+label{display:block;color:#345;margin-bottom:5px;font-weight:600;font-size:14px}
+input,textarea{width:100%;padding:10px;border:1px solid #ccd;border-radius:8px;font-size:15px}
+textarea{height:180px;resize:vertical}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:14px;cursor:pointer;margin:0 4px}
+.btn-save{background:#28a745;color:#fff}
+.btn-load{background:#17a2b8;color:#fff}
+.btn-del{background:#dc3545;color:#fff}
+.btn-reset{background:#868e96;color:#fff}
+.btn-git{background:#6e5494;color:#fff}
+.card-list{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:12px}
+.card{border:1px solid #e8edf5;border-radius:10px;padding:14px;cursor:pointer;transition:0.2s}
+.card:hover{background:#f4faff}
+.card h3{font-size:16px;color:#222;margin-bottom:6px}
+.card .tag{display:inline-block;background:#cceeff;color:#117;padding:2px 6px;border-radius:4px;font-size:12px}
+.file-area{margin-bottom:12px;padding:10px;background:#f8fcff;border-radius:8px}
+.tip{margin-top:10px;padding:10px;background:#eef7ff;border-radius:8px;color:#247;font-size:14px}
+</style>
+</head>
+<body>
+<div id="loginWrap">
+  <h2>🔐 后台登录</h2>
+  <p style="color:#778;font-size:14px;margin-bottom:16px">双创竞赛信息管理后台</p>
+  <input id="pwdInput" type="password" placeholder="输入管理密码">
+  <br><br>
+  <button class="btn btn-save" id="btnLogin">登录后台</button>
+  <p style="margin-top:12px;color:#99a;font-size:13px">默认密码：lanqiao2026，可在源码修改</p>
+</div>
+
+<div id="editorWrap" class="container">
+  <h1>📌 双创竞赛信息后台编辑</h1>
+
+  <div class="panel">
+    <div class="form-row">
+      <label>标题</label>
+      <input id="inpTitle" placeholder="竞赛标题">
+    </div>
+    <div class="form-row">
+      <label>标签（例：报名 / 获奖公示 / 培训）</label>
+      <input id="inpTag">
+    </div>
+    <div class="form-row">
+      <label>截止日期</label>
+      <input id="inpDeadline" type="date">
+    </div>
+    <div class="form-row">
+      <label>配图链接（图床上传）</label>
+      <input id="inpCover">
+      <div style="margin-top:6px">
+        <button class="btn btn-git" id="btnUploadImg">上传图片到 GitHub 图床</button>
+        <input type="file" id="imgUploadFile" accept="image/*" style="display:none">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>正文内容</label>
+      <textarea id="inpContent"></textarea>
+    </div>
+
+    <div class="form-row">
+      <label>GitHub 图床配置（一次性填好保存）</label>
+      <input id="ghRepo" placeholder="仓库，如 user/imgbed">
+      <input id="ghToken" type="password" placeholder="GitHub 个人访问令牌">
+    </div>
+
+    <div style="margin-top:14px">
+      <button class="btn btn-save" id="btnAdd">新增条目</button>
+      <button class="btn btn-save" id="btnUpdate">保存修改</button>
+      <button class="btn btn-del" id="btnDel">删除当前</button>
+      <button class="btn btn-reset" id="btnClearForm">清空表单</button>
+    </div>
+
+    <div class="file-area">
+      <label>导入本地 data.json</label>
+      <input type="file" id="fileImport" accept=".json">
+      <br>
+      <button class="btn btn-load" id="btnExport">下载 data.json（发布用）</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="font-size:18px;margin-bottom:12px">已发布竞赛卡片（点击编辑）</h2>
+    <div class="card-list" id="cardBox"></div>
+  </div>
+
+  <div class="tip">
+    💡 使用流程：导入线上下载的 data.json → 修改 / 新增 → 下载新 data.json → 上传覆盖服务器文件；图片一键上传 GitHub 图床，拿到链接填入配图栏。
+  </div>
+</div>
+
+<script>
+const ADMIN_PASS = "Tzq070911#";
+let data = { list: [] };
+let editId = null;
+
+const loginWrap = document.getElementById("loginWrap");
+const editorWrap = document.getElementById("editorWrap");
+const pwdInput = document.getElementById("pwdInput");
+const btnLogin = document.getElementById("btnLogin");
+
+const inpTitle = document.getElementById('inpTitle');
+const inpTag = document.getElementById('inpTag');
+const inpDeadline = document.getElementById('inpDeadline');
+const inpCover = document.getElementById('inpCover');
+const inpContent = document.getElementById('inpContent');
+const ghRepo = document.getElementById('ghRepo');
+const ghToken = document.getElementById('ghToken');
+
+const btnAdd = document.getElementById('btnAdd');
+const btnUpdate = document.getElementById('btnUpdate');
+const btnDel = document.getElementById('btnDel');
+const btnClearForm = document.getElementById('btnClearForm');
+const btnExport = document.getElementById('btnExport');
+const fileImport = document.getElementById('fileImport');
+const cardBox = document.getElementById('cardBox');
+
+const btnUploadImg = document.getElementById('btnUploadImg');
+const imgUploadFile = document.getElementById('imgUploadFile');
+
+btnLogin.onclick = () => {
+  if(pwdInput.value.trim() === ADMIN_PASS){
+    loginWrap.style.display = "none";
+    editorWrap.style.display = "block";
+    loadGhConfig();
+  }else{
+    alert("❌ 密码错误");
+  }
+};
+
+function saveGhConfig(){
+  localStorage.setItem("gh_repo", ghRepo.value.trim());
+  localStorage.setItem("gh_token", ghToken.value.trim());
+}
+function loadGhConfig(){
+  ghRepo.value = localStorage.getItem("gh_repo") || "";
+  ghToken.value = localStorage.getItem("gh_token") || "";
+}
+
+btnUploadImg.onclick = () => imgUploadFile.click();
+imgUploadFile.onchange = async function(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const repo = ghRepo.value.trim();
+  const token = ghToken.value.trim();
+  if(!repo || !token) return alert("请先填好 GitHub 仓库与 Token");
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const b64 = ev.target.result.split(",")[1];
+    const filename = `img_${Date.now()}.${f.name.split(".").pop()}`;
+    const url = `https://api.github.com/repos/${repo}/contents/${filename}`;
+    try{
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "upload imgbed", content: b64 })
+      });
+      const json = await res.json();
+      if(json.content && json.content.download_url){
+        inpCover.value = json.content.download_url;
+        alert("✅ 上传成功，链接已填入");
+      }else{
+        alert("上传失败：" + JSON.stringify(json));
+      }
+    }catch{
+      alert("上传失败，请检查仓库名、Token 权限");
+    }
+  };
+  reader.readAsDataURL(f);
+};
+
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+
+function render(){
+  cardBox.innerHTML = '';
+  data.list.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <h3>${item.title || '无标题'}</h3>
+      <span class="tag">${item.tag || '其他'}</span>
+      <div style="margin-top:6px;font-size:13px;color:#778">截止：${item.deadline || '未填'}</div>
+    `;
+    div.onclick = () => loadToForm(item);
+    cardBox.appendChild(div);
+  })
+}
+
+function loadToForm(item){
+  editId = item.id;
+  inpTitle.value = item.title || '';
+  inpTag.value = item.tag || '';
+  inpDeadline.value = item.deadline || '';
+  inpCover.value = item.cover || '';
+  inpContent.value = item.content || '';
+}
+
+function clearForm(){
+  editId = null;
+  inpTitle.value = '';
+  inpTag.value = '';
+  inpDeadline.value = '';
+  inpCover.value = '';
+  inpContent.value = '';
+}
+
+function collect(){
+  saveGhConfig();
+  return {
+    id: editId || genId(),
+    title: inpTitle.value.trim(),
+    tag: inpTag.value.trim(),
+    deadline: inpDeadline.value,
+    publishAt: todayStr(),
+    cover: inpCover.value.trim(),
+    content: inpContent.value.trim()
+  }
+}
+
+btnAdd.onclick = () => {
+  const entry = collect();
+  if(!entry.title) return alert('标题不能为空');
+  entry.id = genId();
+  data.list.push(entry);
+  clearForm();
+  render();
+  alert('✅ 添加成功');
+}
+
+btnUpdate.onclick = () => {
+  if(!editId) return alert('请先点击一张卡片选中要修改的条目');
+  const entry = collect();
+  if(!entry.title) return alert('标题不能为空');
+  const idx = data.list.findIndex(x => x.id === editId);
+  if(idx !== -1) data.list[idx] = entry;
+  clearForm();
+  render();
+  alert('✅ 修改已保存');
+}
+
+btnDel.onclick = () => {
+  if(!editId) return alert('请先选中条目');
+  if(!confirm('确定删除这条竞赛信息？')) return;
+  data.list = data.list.filter(x => x.id !== editId);
+  clearForm();
+  render();
+  alert('已删除');
+}
+
+btnClearForm.onclick = () => clearForm();
+
+btnExport.onclick = () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'data.json';
+  a.click();
+}
+
+fileImport.onchange = function(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try{
+      data = JSON.parse(ev.target.result);
+      if(!data.list) data.list = [];
+      render();
+      alert('✅ 导入成功');
+    }catch{
+      alert('不是合法 JSON 文件');
+    }
+  }
+  r.readAsText(f);
+}
+
+render();
+</script>
+</body>
+</html>

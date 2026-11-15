@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>双创竞赛信息汇总</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Microsoft Yahei",sans-serif}
+body{background:#f7fbff;padding:20px}
+.container{max-width:900px;margin:auto}
+header{text-align:center;padding:20px 0;margin-bottom:20px}
+header h1{color:#1f3b70;font-size:28px}
+header p{color:#778;font-size:14px;margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:16px}
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px #00000014;overflow:hidden;cursor:pointer;transition:0.2s}
+.card:hover{transform:translateY(-4px)}
+.card-cover{height:160px;background:#eef7ff;display:flex;align-items:center;justify-content:center;color:#99a;font-size:14px}
+.card-body{padding:16px}
+.tag{display:inline-block;background:#cceeff;color:#117;padding:3px 7px;border-radius:5px;font-size:12px;margin-bottom:8px}
+.card-title{font-size:18px;color:#222;font-weight:bold;margin-bottom:6px}
+.card-meta{font-size:13px;color:#778}
+.empty{text-align:center;padding:60px;color:#99a;font-size:16px}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🏆 双创竞赛信息汇总</h1>
+    <p>由班级双创委员统一发布 · 点击卡片查看详情</p>
+  </header>
+  <div class="grid" id="cardGrid"></div>
+  <div class="empty" id="emptyTip" style="display:none">暂无竞赛信息</div>
+</div>
+
+<script>
+async function loadData(){
+  try{
+    const res = await fetch('./data.json');
+    if(!res.ok) throw new Error('load fail');
+    return await res.json();
+  }catch{
+    return { list: [] };
+  }
+}
+
+function render(list){
+  const grid = document.getElementById('cardGrid');
+  const emptyTip = document.getElementById('emptyTip');
+  if(!list || list.length === 0){
+    emptyTip.style.display = 'block';
+    return;
+  }
+  emptyTip.style.display = 'none';
+  list.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    let coverHtml = `<div class="card-cover">暂无配图</div>`;
+    if(item.cover){
+      coverHtml = `<div class="card-cover" style="background:none"><img src="${item.cover}" style="width:100%;height:100%;object-fit:cover" alt=""></div>`;
+    }
+    div.innerHTML = `
+      ${coverHtml}
+      <div class="card-body">
+        <span class="tag">${item.tag || '其他'}</span>
+        <div class="card-title">${item.title}</div>
+        <div class="card-meta">截止：${item.deadline || '未公布'}</div>
+      </div>
+    `;
+    div.onclick = () => location.href = `detail.html?id=${item.id}`;
+    grid.appendChild(div);
+  })
+}
+
+(async () => {
+  const data = await loadData();
+  render(data.list || []);
+})()
+</script>
+</body>
+</html>
